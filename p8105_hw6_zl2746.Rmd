@@ -35,6 +35,7 @@ scale_fill_discrete = scale_fill_viridis_d
 ## Problem 2
 
 ```{r}
+# Load data
 weather_df = 
   rnoaa::meteo_pull_monitors(
     c("USW00094728"),
@@ -49,34 +50,9 @@ weather_df =
 weather_df
 ```
 
-```{r}
-# Plot simple linear regression with tmax as the response 
-# with tmin and prcp as the predictors
-weather_df |> 
-  ggplot(aes(x = tmin, y = tmax)) + 
-  geom_smooth() +
-  geom_point()
-
-weather_df |> 
-  ggplot(aes(x = prcp, y = tmax)) + 
-  geom_smooth() +
-  geom_point()
-```
-
-
-```{r}
-model_slr1 = lm(tmax~tmin, weather_df)
-summary(model_slr1)
-model_slr2 = lm(tmax~prcp, weather_df)
-summary(model_slr2)
-```
-
-
 Use 5000 bootstrap samples and, for each bootstrap sample, produce estimates of these two quantities. Plot the distribution of your estimates, and describe these in words.
 
-Using the 5000 bootstrap estimates, identify the 2.5% and 97.5% quantiles to provide a 95% confidence interval for r̂ 2 and log(β̂ 0∗β̂ 1). 
-
-* tmax as the response & tmin as the predictors
+* tmax as the response & tmin and prcp as the predictors
 
 ```{r}
 # Start with a lil function
@@ -92,73 +68,69 @@ boot_results =
   tibble(strap_number = 1:5000) |> 
   mutate(
     strap_sample = map(strap_number, \(i) boot_sample(weather_df)),
-    models = map(strap_sample, \(df) lm(tmax ~ tmin, data = df)),
-    results = map(models, broom::tidy)
+    models = map(strap_sample, \(df) lm(tmax ~ tmin + prcp, data = df)),
+    results = map(models, broom::tidy),
+    r_squared = map_dbl(models, \(model) summary(model)$r.squared)
   ) |> 
-  select(strap_number, results) |> 
+  select(strap_number, results,r_squared) |> 
   unnest(results)
 
-# try to summarize these results – get a bootstrap SE
-boot_results |> 
+# try to summarize these results – get log(beta1_hat * beta2_hat) & r_squared
+boot_results2 = 
+  boot_results |>
   group_by(term) |> 
-  summarize(
-    se = sd(estimate)
+  select(strap_number, term, estimate, r_squared) |>
+  pivot_wider(
+    names_from = term,
+    values_from = estimate
+  ) |> 
+  mutate(
+    log_beta = log(tmin * prcp)
   )
+boot_results2
 
-# look at the distribution
-boot_results |> 
-  filter(term == "tmin") |> 
-  ggplot(aes(x = estimate)) + 
-  geom_density()
+# look at the distribution of tmin
+boot_results2 |> 
+  ggplot(aes(x = tmin)) + 
+  geom_density() +
+  xlab("tmin estimate") +
+  ylab("strap number") +
+  ggtitle("The distribution of tmin in boot result")
+ggsave("The distribution of tmin in boot result for problem 2.jpg")
 
-# construct a CI
-boot_results |> 
-  group_by(term) |> 
-  summarize(
-    ci_lower = quantile(estimate, 0.025),
-    ci_upper = quantile(estimate, 0.975)
-  )
+# look at the distribution of prcp
+boot_results2 |> 
+  ggplot(aes(x = prcp)) + 
+  geom_density() +
+  xlab("prcp estimate") +
+  ylab("strap number") +
+  ggtitle("The distribution of prcp in boot result")
+ggsave("The distribution of prcp in boot result for problem 2.jpg")
 ```
 
-* tmax as the response & prcp as the predictors
+**The distribution for tmin is symmetric and unimodal, centered around 1.00, with estimates ranging roughly from 0.95 to 1.05. This suggests that the bootstrap method produced a reliable estimate for tmin with a narrow spread and precision.**
+
+**The distribution for prcp is bimodal, indicating two different modes of behavior or relationships between prcp and tmax within the dataset. The presence of bimodality in the bootstrap distribution could be indicative of a non-linear relationship**
+
+Using the 5000 bootstrap estimates, identify the 2.5% and 97.5% quantiles to provide a 95% confidence interval for r̂ 2 and log(β̂ 1 * β̂ 2). 
 
 ```{r}
-# Draw 5000 samples and analyze them
-# Do the lm fit.
-boot_results2 = 
-  tibble(strap_number = 1:5000) |> 
-  mutate(
-    strap_sample = map(strap_number, \(i) boot_sample(weather_df)),
-    models = map(strap_sample, \(df) lm(tmax ~ tmin + prcp, data = df)),
-    results = map(models, broom::tidy)
-  ) |> 
-  select(strap_number, results) |> 
-  unnest(results)
-
-# try to summarize these results – get a bootstrap SE
+# construct a CI for log(beta1*beta2)
 boot_results2 |> 
-  group_by(term) |> 
+  drop_na() |> 
   summarize(
-    se = sd(estimate)
+    ci_lower = quantile(log_beta, 0.025),
+    ci_upper = quantile(log_beta, 0.975),
   )
 
-# look at the distribution
+# construct a CI for r squared
 boot_results2 |> 
-  filter(term == "tmin") |> 
-  ggplot(aes(x = estimate)) + 
-  geom_density()
-ggsave("The distribution of boot result for problem 2.jpg")
-
-# construct a CI
-boot_results2 |> 
-  group_by(term) |> 
   summarize(
-    ci_lower = quantile(estimate, 0.025),
-    ci_upper = quantile(estimate, 0.975)
+    ci_lower = quantile(r_squared, 0.025),
+    ci_upper = quantile(r_squared, 0.975)
   )
 ```
 
-**The distribution is symmetric and unimodal, centered around 1.00, with estimates ranging roughly from 0.95 to 1.05. This suggests that the bootstrap method produced a reliable estimate for tmin with a narrow spread and precision.**
 
 ## Problem 3
 
@@ -215,7 +187,7 @@ Make this comparison in terms of the cross-validated prediction error; use cross
 ```{r}
 set.seed(123)  
 
-train1 = sample_n(model, 100)
-test1 = anti_join(model, train1, by = "id")
+#train1 = sample_n(model, 100)
+#test1 = anti_join(model, train1, by = "id")
 ```
 
