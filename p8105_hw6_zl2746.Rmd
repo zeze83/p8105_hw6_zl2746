@@ -32,6 +32,27 @@ scale_colour_discrete = scale_colour_viridis_d
 scale_fill_discrete = scale_fill_viridis_d
 ```
 
+## Problem 1
+
+```{r}
+# Load and clean data
+homicide <- read_csv("homicide-data.csv") |>
+  unite(city_state,c(city,state),sep = ', ') |>
+  mutate(solved = ifelse(disposition %in% c("Closed without arrest", "Open/No arrest"), "1","0"),
+         city_state = ifelse(city_state == "Tulsa, AL", "Tulsa, OK", city_state),
+         victim_age = as.numeric(victim_age)) |>
+  filter(!city_state %in% c("Dallas, TX", "Phoenix, AZ", "Kansas City, MO", "Tulsa, OK")) |>
+  filter(victim_race %in% c("White", "Black"))
+head(homicide)
+```
+
+For the city of Baltimore, MD, use the glm function to fit a logistic regression with resolved vs unresolved as the outcome and victim age, sex and race as predictors. Save the output of glm as an R object; apply the broom::tidy to this object; and obtain the estimate and confidence interval of the adjusted odds ratio for solving homicides comparing male victims to female victims keeping all other variables fixed.
+
+```{r}
+
+
+```
+
 ## Problem 2
 
 ```{r}
@@ -137,6 +158,13 @@ ggsave("The distribution of R squared in boot result for problem 2.jpg")
 Using the 5000 bootstrap estimates, identify the 2.5% and 97.5% quantiles to provide a 95% confidence interval for r̂ 2 and log(β̂ 1 * β̂ 2). 
 
 ```{r}
+# The fraction of valid log
+valid_log =
+  boot_results2 |> 
+  drop_na() 
+fraction = nrow(valid_log)/5000
+fraction
+
 # construct a CI for log(beta1*beta2)
 boot_results2 |> 
   drop_na() |> 
