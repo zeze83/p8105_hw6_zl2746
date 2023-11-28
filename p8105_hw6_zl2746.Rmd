@@ -7,13 +7,11 @@ output: github_document
 
 ```{r, include = FALSE, message = FALSE, warning = FALSE}
 library(tidyverse)
-library(rvest)
+library(readr)
 library(ggplot2)
 library(broom)
-library(p8105.datasets)
 library(modelr)
-
-set.seed(1)
+library(purrr)
 
 knitr::opts_chunk$set(
 	echo = TRUE,
@@ -149,6 +147,7 @@ boot_results2 |>
   filter(term == "tmin") |> 
   ggplot(aes(x = estimate)) + 
   geom_density()
+ggsave("The distribution of boot result for problem 2.jpg")
 
 # construct a CI
 boot_results2 |> 
@@ -157,5 +156,66 @@ boot_results2 |>
     ci_lower = quantile(estimate, 0.025),
     ci_upper = quantile(estimate, 0.975)
   )
+```
+
+**The distribution is symmetric and unimodal, centered around 1.00, with estimates ranging roughly from 0.95 to 1.05. This suggests that the bootstrap method produced a reliable estimate for tmin with a narrow spread and precision.**
+
+## Problem 3
+
+```{r}
+# Load and clean the data for regression analysis
+birthweight <- read_csv("birthweight.csv") |>
+  mutate(
+    babysex = recode(babysex, "1" = "male", "2" = "female"),
+    frace = recode(frace, "1" = "White", "2" = "Black", "3" = "Asian", "4" = "Puerto Rican", "8" = "Other", "9" = "Unknown"),
+    mrace = recode(mrace, "1" = "White", "2" = "Black", "3" = "Asian", "4" = "Puerto Rican", "8" = "Other"),
+    malform = recode(malform, "0" = "absent", "1" = "present")
+  ) |>
+  drop_na()
+# negative wtgain?
+```
+
+Propose a regression model for birthweight. This model may be based on a hypothesized structure for the factors that underly birthweight, on a data-driven model-building process, or a combination of the two. Describe your modeling process and show a plot of model residuals against fitted values – use add_predictions and add_residuals in making this plot.
+
+```{r}
+# Propose a regression model for birthweight
+model <- lm(bwt ~ gaweeks + ppbmi + blength + bhead + smoken + wtgain + babysex + frace + mrace, 
+            data = birthweight)
+summary(model)
+
+birthweight_df <- birthweight |> 
+  add_predictions(model) |> 
+  add_residuals(model)
+
+# Plotting residuals against fitted values
+ggplot(birthweight_df, aes(x = pred, y = resid)) + 
+  geom_point() + 
+  geom_hline(yintercept = 0, color = "red") +
+  xlab("Fitted Values") +
+  ylab("Residuals")
+```
+
+* One using length at birth and gestational age as predictors (main effects only)
+
+```{r}
+model2 <- lm(bwt ~ gaweeks + blength, data = birthweight)
+summary(model2)
+```
+
+* One using head circumference, length, sex, and all interactions (including the three-way interaction) between these
+
+```{r}
+model3 <- lm(bwt ~ bhead + blength + babysex + bhead * blength + bhead * babysex + blength * babysex, 
+             data = birthweight)
+summary(model3)
+```
+
+Make this comparison in terms of the cross-validated prediction error; use crossv_mc and functions in purrr as appropriate.
+
+```{r}
+set.seed(123)  
+
+train1 = sample_n(model, 100)
+test1 = anti_join(model, train1, by = "id")
 ```
 
