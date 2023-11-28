@@ -208,8 +208,72 @@ Make this comparison in terms of the cross-validated prediction error; use cross
 
 ```{r}
 set.seed(123)  
+# Do the train / test split
+train = sample_n(birthweight, size = 80)
+train
+test = anti_join(birthweight, train)
+test
 
-#train1 = sample_n(model, 100)
-#test1 = anti_join(model, train1, by = "id")
+# RMSE on Training and Testing Data
+rmse_train1 = rmse(model, train)
+rmse_train2 = rmse(model2, train)
+rmse_train3 = rmse(model3, train)
+rmse_test1 = rmse(model, test)
+rmse_test2 = rmse(model2, test)
+rmse_test3 = rmse(model3, test)
+
+# Output RMSE results
+rmse_train1; rmse_train2; rmse_train3;
+rmse_test1; rmse_test2; rmse_test3
+```
+
+```{r}
+# Use modelr for CV
+cv_df = 
+  birthweight |> 
+  crossv_mc(n = 100) |> 
+  mutate(
+    train = map(train, as_tibble),
+    test = map(test, as_tibble)
+  )
+cv_df |> pull(train) |> nth(3) |> as_tibble()
+
+# Apply each model to all training datasets, and evaluate on all testing datasets.
+cv_results =
+  cv_df |> 
+  mutate(
+    model1 = map(train, \(df) lm(bwt ~ gaweeks + ppbmi + blength + bhead + smoken + wtgain + babysex + frace + mrace, 
+            data = birthweight)),
+    model2 = map(train, \(df) lm(bwt ~ gaweeks + blength, data = birthweight)),
+    model3 = map(train, \(df) lm(bwt ~ bhead + blength + babysex + bhead * blength + bhead * babysex + blength * babysex, 
+             data = birthweight))
+  ) |> 
+  mutate(
+    rmse_model1 = map2_dbl(model1, test, \(mod, df) rmse(mod, df)),
+    rmse_model2 = map2_dbl(model2, test, \(mod, df) rmse(mod, df)),
+    rmse_model3 = map2_dbl(model3, test, \(mod, df) rmse(mod, df))
+  )
+
+cv_results |> 
+  select(starts_with("rmse")) |> 
+  pivot_longer(
+    everything(),
+    names_to = "model_type",
+    values_to = "rmse",
+    names_prefix = "rmse_"
+  ) |> 
+  group_by(model_type) |> 
+  summarize(m_rmse = mean(rmse))
+
+cv_results |> 
+  select(starts_with("rmse")) |> 
+  pivot_longer(
+    everything(),
+    names_to = "model_type",
+    values_to = "rmse",
+    names_prefix = "rmse_"
+  ) |> 
+  ggplot(aes(x = model_type, y = rmse)) +
+  geom_violin()
 ```
 
