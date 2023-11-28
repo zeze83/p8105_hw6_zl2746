@@ -106,11 +106,33 @@ boot_results2 |>
   ylab("strap number") +
   ggtitle("The distribution of prcp in boot result")
 ggsave("The distribution of prcp in boot result for problem 2.jpg")
+
+# look at the distribution of log(beta1*beta2)
+boot_results2 |> 
+  ggplot(aes(x = log_beta)) + 
+  geom_density() +
+  xlab("log(beta1*beta2)") +
+  ylab("strap number") +
+  ggtitle("The distribution of log(beta1*beta2) in boot result")
+ggsave("The distribution of log(beta1*beta2) in boot result for problem 2.jpg")
+
+# look at the distribution of r squared
+boot_results2 |> 
+  ggplot(aes(x = r_squared)) + 
+  geom_density() +
+  xlab("R squared") +
+  ylab("strap number") +
+  ggtitle("The distribution of R squared in boot result")
+ggsave("The distribution of R squared in boot result for problem 2.jpg")
 ```
 
 **The distribution for tmin is symmetric and unimodal, centered around 1.00, with estimates ranging roughly from 0.95 to 1.05. This suggests that the bootstrap method produced a reliable estimate for tmin with a narrow spread and precision.**
 
 **The distribution for prcp is bimodal, indicating two different modes of behavior or relationships between prcp and tmax within the dataset. The presence of bimodality in the bootstrap distribution could be indicative of a non-linear relationship**
+
+**The distribution for log(beta1 * beta2) is sharply peaked and asymmetric, which is left skewed. The long tail stretching toward larger negative values shows that there are a few bootstrap samples where the product of the coefficients is very small.**
+
+**The distribution for R squared is a unimodal, nearly symmetrical shape. It is centered around a value slightly less than 0.925, suggesting that most of the bootstrap models have a high proportion of variance explained. The peak's sharpness indicates consistency across bootstrap samples.**
 
 Using the 5000 bootstrap estimates, identify the 2.5% and 97.5% quantiles to provide a 95% confidence interval for r̂ 2 and log(β̂ 1 * β̂ 2). 
 
