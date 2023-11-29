@@ -249,18 +249,13 @@ birthweight <- read_csv("birthweight.csv") |>
     malform = recode(malform, "0" = "absent", "1" = "present")
   ) |>
   drop_na()
-# negative wtgain?
 ```
 
 Propose a regression model for birthweight. This model may be based on a hypothesized structure for the factors that underly birthweight, on a data-driven model-building process, or a combination of the two. Describe your modeling process and show a plot of model residuals against fitted values – use add_predictions and add_residuals in making this plot.
 
 ```{r q3 model1}
 # Propose a regression model for birthweight
-model <- lm(bwt ~ ., data = birthweight)
-summary(model)
-
-# variable selection by backward stepwise
-model1 = step(model, direction = "backward")
+model1 <- lm(bwt ~ ., data = birthweight)
 summary(model1)
 
 birthweight_df <- birthweight |> 
@@ -274,6 +269,8 @@ ggplot(birthweight_df, aes(x = pred, y = resid)) +
   xlab("Fitted Values") +
   ylab("Residuals")
 ```
+
+**There are several variables are insignificant such as fincome, frace, malformpresent, menarche, mheight, and mrace since the p value is greater than 0.05. For variable pnumlbw, pnumsga, and wtgain produces NA, which implies the independence relationship with birthweitght.**
 
 * One using length at birth and gestational age as predictors (main effects only)
 
