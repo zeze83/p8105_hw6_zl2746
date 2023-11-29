@@ -12,6 +12,7 @@ library(ggplot2)
 library(broom)
 library(modelr)
 library(purrr)
+library(stats)
 
 knitr::opts_chunk$set(
 	echo = TRUE,
@@ -258,13 +259,8 @@ Propose a regression model for birthweight. This model may be based on a hypothe
 model <- lm(bwt ~ ., data = birthweight)
 summary(model)
 
-# variable selection
-model |>
-  broom::tidy() |>
-  filter(p.value < 0.05)
-
-model1 = lm(bwt ~ gaweeks + ppbmi + blength + bhead + smoken + wtgain + babysex, 
-            data = birthweight)
+# variable selection by backward stepwise
+model1 = step(model, direction = "backward")
 summary(model1)
 
 birthweight_df <- birthweight |> 
