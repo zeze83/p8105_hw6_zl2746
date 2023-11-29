@@ -108,7 +108,7 @@ model_results |>
 
 ## Problem 2
 
-```{r}
+```{r q2 data cleaning}
 # Load data
 weather_df = 
   rnoaa::meteo_pull_monitors(
@@ -128,7 +128,7 @@ Use 5000 bootstrap samples and, for each bootstrap sample, produce estimates of 
 
 * tmax as the response & tmin and prcp as the predictors
 
-```{r}
+```{r q2 bootstrap}
 # Start with a lil function
 boot_sample = function(df) {
   
@@ -210,7 +210,7 @@ ggsave("The distribution of R squared in boot result for problem 2.jpg")
 
 Using the 5000 bootstrap estimates, identify the 2.5% and 97.5% quantiles to provide a 95% confidence interval for r̂ 2 and log(β̂ 1 * β̂ 2). 
 
-```{r}
+```{r q2 CI}
 # The fraction of valid log
 valid_log =
   boot_results2 |> 
@@ -238,7 +238,7 @@ boot_results2 |>
 
 ## Problem 3
 
-```{r}
+```{r q3 data cleaning}
 # Load and clean the data for regression analysis
 birthweight <- read_csv("birthweight.csv") |>
   mutate(
@@ -253,15 +253,23 @@ birthweight <- read_csv("birthweight.csv") |>
 
 Propose a regression model for birthweight. This model may be based on a hypothesized structure for the factors that underly birthweight, on a data-driven model-building process, or a combination of the two. Describe your modeling process and show a plot of model residuals against fitted values – use add_predictions and add_residuals in making this plot.
 
-```{r}
+```{r q3 model1}
 # Propose a regression model for birthweight
-model <- lm(bwt ~ gaweeks + ppbmi + blength + bhead + smoken + wtgain + babysex + frace + mrace, 
-            data = birthweight)
+model <- lm(bwt ~ ., data = birthweight)
 summary(model)
 
+# variable selection
+model |>
+  broom::tidy() |>
+  filter(p.value < 0.05)
+
+model1 = lm(bwt ~ gaweeks + ppbmi + blength + bhead + smoken + wtgain + babysex, 
+            data = birthweight)
+summary(model1)
+
 birthweight_df <- birthweight |> 
-  add_predictions(model) |> 
-  add_residuals(model)
+  add_predictions(model1) |> 
+  add_residuals(model1)
 
 # Plotting residuals against fitted values
 ggplot(birthweight_df, aes(x = pred, y = resid)) + 
@@ -273,14 +281,14 @@ ggplot(birthweight_df, aes(x = pred, y = resid)) +
 
 * One using length at birth and gestational age as predictors (main effects only)
 
-```{r}
+```{r q3 model2}
 model2 <- lm(bwt ~ gaweeks + blength, data = birthweight)
 summary(model2)
 ```
 
 * One using head circumference, length, sex, and all interactions (including the three-way interaction) between these
 
-```{r}
+```{r q3 model3}
 model3 <- lm(bwt ~ bhead + blength + babysex + bhead * blength + bhead * babysex + blength * babysex, 
              data = birthweight)
 summary(model3)
@@ -288,7 +296,7 @@ summary(model3)
 
 Make this comparison in terms of the cross-validated prediction error; use crossv_mc and functions in purrr as appropriate.
 
-```{r}
+```{r comparsion cv}
 set.seed(123)  
 # Do the train / test split
 train = sample_n(birthweight, size = 80)
@@ -297,10 +305,10 @@ test = anti_join(birthweight, train)
 test
 
 # RMSE on Training and Testing Data
-rmse_train1 = rmse(model, train)
+rmse_train1 = rmse(model1, train)
 rmse_train2 = rmse(model2, train)
 rmse_train3 = rmse(model3, train)
-rmse_test1 = rmse(model, test)
+rmse_test1 = rmse(model1, test)
 rmse_test2 = rmse(model2, test)
 rmse_test3 = rmse(model3, test)
 
@@ -309,7 +317,7 @@ rmse_train1; rmse_train2; rmse_train3;
 rmse_test1; rmse_test2; rmse_test3
 ```
 
-```{r}
+```{r modelr cv}
 # Use modelr for CV
 cv_df = 
   birthweight |> 
@@ -324,11 +332,9 @@ cv_df |> pull(train) |> nth(3) |> as_tibble()
 cv_results =
   cv_df |> 
   mutate(
-    model1 = map(train, \(df) lm(bwt ~ gaweeks + ppbmi + blength + bhead + smoken + wtgain + babysex + frace + mrace, 
-            data = birthweight)),
-    model2 = map(train, \(df) lm(bwt ~ gaweeks + blength, data = birthweight)),
-    model3 = map(train, \(df) lm(bwt ~ bhead + blength + babysex + bhead * blength + bhead * babysex + blength * babysex, 
-             data = birthweight))
+    model1 = map(train, \(df) model1),
+    model2 = map(train, \(df) model2),
+    model3 = map(train, \(df) model3)
   ) |> 
   mutate(
     rmse_model1 = map2_dbl(model1, test, \(mod, df) rmse(mod, df)),
@@ -357,5 +363,8 @@ cv_results |>
   ) |> 
   ggplot(aes(x = model_type, y = rmse)) +
   geom_violin()
+
+ggsave("Violin distribution of rmse for 3 models.jpg")
 ```
 
+**The violin plot illustrates the distribution of root mean square error (RMSE) for three predictive models. Model 1's RMSE distribution is narrow and concentrated, indicating consistent performance with lower errors. Model 2 shows bimodal distribution, suggesting more variability and higher errors. Model 3 presents a similar distribution with model1 but slightly narrower and higher RMSE. As a result, Model 1 is the most reliable predictions with the smallest errors.**
